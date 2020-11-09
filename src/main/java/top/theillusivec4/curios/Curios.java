@@ -83,108 +83,108 @@ public class Curios {
   public static final String MODID = CuriosApi.MODID;
   public static final Logger LOGGER = LogManager.getLogger();
 
-  private static final boolean DEBUG = false;
+  private static final boolean DEBUG = true;
 
   public Curios() {
-    final IEventBus eventBus = FMLJavaModLoadingContext.get().getModEventBus();
-    eventBus.addListener(this::setup);
-    eventBus.addListener(this::config);
-    eventBus.addListener(this::enqueue);
-    eventBus.addListener(this::process);
-    MinecraftForge.EVENT_BUS.addListener(this::serverAboutToStart);
-    MinecraftForge.EVENT_BUS.addListener(this::serverStopped);
-    MinecraftForge.EVENT_BUS.addListener(this::registerCommands);
-    ModLoadingContext.get().registerConfig(Type.CLIENT, CuriosClientConfig.CLIENT_SPEC);
-    ModLoadingContext.get().registerConfig(Type.SERVER, CuriosConfig.SERVER_SPEC);
+	final IEventBus eventBus = FMLJavaModLoadingContext.get().getModEventBus();
+	eventBus.addListener(this::setup);
+	eventBus.addListener(this::config);
+	eventBus.addListener(this::enqueue);
+	eventBus.addListener(this::process);
+	MinecraftForge.EVENT_BUS.addListener(this::serverAboutToStart);
+	MinecraftForge.EVENT_BUS.addListener(this::serverStopped);
+	MinecraftForge.EVENT_BUS.addListener(this::registerCommands);
+	ModLoadingContext.get().registerConfig(Type.CLIENT, CuriosClientConfig.CLIENT_SPEC);
+	ModLoadingContext.get().registerConfig(Type.SERVER, CuriosConfig.SERVER_SPEC);
   }
 
   private void setup(FMLCommonSetupEvent evt) {
-    CuriosApi.setCuriosHelper(new CuriosHelper());
-    CurioInventoryCapability.register();
-    CurioItemCapability.register();
-    MinecraftForge.EVENT_BUS.register(new CuriosEventHandler());
-    NetworkHandler.register();
-    ArgumentTypes.register("curios:slot_type", CurioArgumentType.class,
-        new ArgumentSerializer<>(CurioArgumentType::slot));
-    CriteriaTriggers.register(EquipCurioTrigger.INSTANCE);
+	CuriosApi.setCuriosHelper(new CuriosHelper());
+	CurioInventoryCapability.register();
+	CurioItemCapability.register();
+	MinecraftForge.EVENT_BUS.register(new CuriosEventHandler());
+	NetworkHandler.register();
+	ArgumentTypes.register("curios:slot_type", CurioArgumentType.class,
+		new ArgumentSerializer<>(CurioArgumentType::slot));
+	CriteriaTriggers.register(EquipCurioTrigger.INSTANCE);
   }
 
   private void enqueue(InterModEnqueueEvent evt) {
 
-    if (DEBUG) {
-      InterModComms.sendTo(MODID, SlotTypeMessage.REGISTER_TYPE,
-          () -> Arrays.stream(SlotTypePreset.values())
-              .map(preset -> preset.getMessageBuilder().build()).collect(Collectors.toList()));
-    }
+	if (DEBUG) {
+	  InterModComms.sendTo(MODID, SlotTypeMessage.REGISTER_TYPE,
+		  () -> Arrays.stream(SlotTypePreset.values())
+		  .map(preset -> preset.getMessageBuilder().size(2).build()).collect(Collectors.toList()));
+	}
   }
 
   private void process(InterModProcessEvent evt) {
-    SlotTypeManager.buildImcSlotTypes(evt.getIMCStream(SlotTypeMessage.REGISTER_TYPE::equals),
-        evt.getIMCStream(SlotTypeMessage.MODIFY_TYPE::equals));
+	SlotTypeManager.buildImcSlotTypes(evt.getIMCStream(SlotTypeMessage.REGISTER_TYPE::equals),
+		evt.getIMCStream(SlotTypeMessage.MODIFY_TYPE::equals));
   }
 
   private void serverAboutToStart(FMLServerAboutToStartEvent evt) {
-    CuriosApi.setSlotHelper(new SlotHelper());
-    SlotTypeManager.buildSlotTypes();
+	CuriosApi.setSlotHelper(new SlotHelper());
+	SlotTypeManager.buildSlotTypes();
   }
 
   private void serverStopped(FMLServerStoppedEvent evt) {
-    CuriosApi.setSlotHelper(null);
+	CuriosApi.setSlotHelper(null);
   }
 
   private void registerCommands(RegisterCommandsEvent evt) {
-    CuriosCommand.register(evt.getDispatcher());
+	CuriosCommand.register(evt.getDispatcher());
   }
 
   private void config(final ModConfig.Loading evt) {
 
-    if (evt.getConfig().getModId().equals(MODID)) {
+	if (evt.getConfig().getModId().equals(MODID)) {
 
-      if (evt.getConfig().getType() == Type.SERVER) {
-        ForgeConfigSpec spec = evt.getConfig().getSpec();
-        CommentedConfig commentedConfig = evt.getConfig().getConfigData();
+	  if (evt.getConfig().getType() == Type.SERVER) {
+		ForgeConfigSpec spec = evt.getConfig().getSpec();
+		CommentedConfig commentedConfig = evt.getConfig().getConfigData();
 
-        if (spec == CuriosConfig.SERVER_SPEC) {
-          CuriosConfig.transformCurios(commentedConfig);
-          SlotTypeManager.buildConfigSlotTypes();
-        }
-      }
-    }
+		if (spec == CuriosConfig.SERVER_SPEC) {
+		  CuriosConfig.transformCurios(commentedConfig);
+		  SlotTypeManager.buildConfigSlotTypes();
+		}
+	  }
+	}
   }
 
   @Mod.EventBusSubscriber(modid = MODID, value = Dist.CLIENT, bus = Bus.MOD)
   public static class ClientProxy {
 
-    @SubscribeEvent
-    public static void stitchTextures(TextureStitchEvent.Pre evt) {
+	@SubscribeEvent
+	public static void stitchTextures(TextureStitchEvent.Pre evt) {
 
-      if (evt.getMap().getTextureLocation() == PlayerContainer.LOCATION_BLOCKS_TEXTURE) {
+	  if (evt.getMap().getTextureLocation() == PlayerContainer.LOCATION_BLOCKS_TEXTURE) {
 
-        for (SlotTypePreset preset : SlotTypePreset.values()) {
-          evt.addSprite(
-              new ResourceLocation(MODID, "item/empty_" + preset.getIdentifier() + "_slot"));
-        }
-        evt.addSprite(new ResourceLocation(MODID, "item/empty_cosmetic_slot"));
-        evt.addSprite(new ResourceLocation(MODID, "item/empty_curio_slot"));
-      }
-    }
+		for (SlotTypePreset preset : SlotTypePreset.values()) {
+		  evt.addSprite(
+			  new ResourceLocation(MODID, "item/empty_" + preset.getIdentifier() + "_slot"));
+		}
+		evt.addSprite(new ResourceLocation(MODID, "item/empty_cosmetic_slot"));
+		evt.addSprite(new ResourceLocation(MODID, "item/empty_curio_slot"));
+	  }
+	}
 
-    @SubscribeEvent
-    public static void setupClient(FMLClientSetupEvent evt) {
-      CuriosApi.setIconHelper(new IconHelper());
-      MinecraftForge.EVENT_BUS.register(new ClientEventHandler());
-      MinecraftForge.EVENT_BUS.register(new GuiEventHandler());
-      ScreenManager.registerFactory(CuriosRegistry.CONTAINER_TYPE, CuriosScreen::new);
-      KeyRegistry.registerKeys();
-    }
+	@SubscribeEvent
+	public static void setupClient(FMLClientSetupEvent evt) {
+	  CuriosApi.setIconHelper(new IconHelper());
+	  MinecraftForge.EVENT_BUS.register(new ClientEventHandler());
+	  MinecraftForge.EVENT_BUS.register(new GuiEventHandler());
+	  ScreenManager.registerFactory(CuriosRegistry.CONTAINER_TYPE, CuriosScreen::new);
+	  KeyRegistry.registerKeys();
+	}
 
-    @SubscribeEvent
-    public static void postSetupClient(FMLLoadCompleteEvent evt) {
-      Map<String, PlayerRenderer> skinMap = Minecraft.getInstance().getRenderManager().getSkinMap();
+	@SubscribeEvent
+	public static void postSetupClient(FMLLoadCompleteEvent evt) {
+	  Map<String, PlayerRenderer> skinMap = Minecraft.getInstance().getRenderManager().getSkinMap();
 
-      for (PlayerRenderer render : skinMap.values()) {
-        render.addLayer(new CuriosLayer<>(render));
-      }
-    }
+	  for (PlayerRenderer render : skinMap.values()) {
+		render.addLayer(new CuriosLayer<>(render));
+	  }
+	}
   }
 }

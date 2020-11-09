@@ -21,6 +21,10 @@ package top.theillusivec4.curios.client.gui;
 
 import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.systems.RenderSystem;
+
+import java.util.ArrayList;
+import java.util.UUID;
+
 import javax.annotation.Nonnull;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.player.ClientPlayerEntity;
@@ -57,12 +61,12 @@ import top.theillusivec4.curios.common.network.client.CPacketToggleRender;
 public class CuriosScreen extends ContainerScreen<CuriosContainer> implements IRecipeShownListener {
 
   static final ResourceLocation CURIO_INVENTORY = new ResourceLocation(Curios.MODID,
-      "textures/gui/inventory.png");
+	  "textures/gui/inventory.png");
   static final ResourceLocation RECIPE_BUTTON_TEXTURE = new ResourceLocation(
-      "minecraft:textures/gui/recipe_button.png");
+	  "minecraft:textures/gui/recipe_button.png");
 
   private static final ResourceLocation CREATIVE_INVENTORY_TABS = new ResourceLocation(
-      "textures/gui/container/creative_inventory/tabs.png");
+	  "textures/gui/container/creative_inventory/tabs.png");
 
   private static float currentScroll;
 
@@ -70,6 +74,7 @@ public class CuriosScreen extends ContainerScreen<CuriosContainer> implements IR
 
   public boolean hasScrollBar;
   public boolean widthTooNarrow;
+  private int scheduleButtonUpdate;
 
   private CuriosButton buttonCurios;
   private boolean isScrolling;
@@ -77,58 +82,75 @@ public class CuriosScreen extends ContainerScreen<CuriosContainer> implements IR
   private boolean isRenderButtonHovered;
 
   public CuriosScreen(CuriosContainer curiosContainer, PlayerInventory playerInventory,
-      ITextComponent title) {
-    super(curiosContainer, playerInventory, title);
-    this.passEvents = true;
+	  ITextComponent title) {
+	super(curiosContainer, playerInventory, title);
+	this.passEvents = true;
+	this.scheduleButtonUpdate = -1;
+	System.out.println("SCREEN CREATED");
   }
 
   public static Tuple<Integer, Integer> getButtonOffset(boolean isCreative) {
-    Client client = CuriosClientConfig.CLIENT;
-    ButtonCorner corner = client.buttonCorner.get();
-    int x = 0;
-    int y = 0;
+	Client client = CuriosClientConfig.CLIENT;
+	ButtonCorner corner = client.buttonCorner.get();
+	int x = 0;
+	int y = 0;
 
-    if (isCreative) {
-      x += corner.getCreativeXoffset() + client.creativeButtonXOffset.get();
-      y += corner.getCreativeYoffset() + client.creativeButtonYOffset.get();
-    } else {
-      x += corner.getXoffset() + client.buttonXOffset.get();
-      y += corner.getYoffset() + client.buttonYOffset.get();
-    }
-    return new Tuple<>(x, y);
+	if (isCreative) {
+	  x += corner.getCreativeXoffset() + client.creativeButtonXOffset.get();
+	  y += corner.getCreativeYoffset() + client.creativeButtonYOffset.get();
+	} else {
+	  x += corner.getXoffset() + client.buttonXOffset.get();
+	  y += corner.getYoffset() + client.buttonYOffset.get();
+	}
+	return new Tuple<>(x, y);
+  }
+
+  public void refreshButtons() {
+	if (this.hasScrollBar) {
+	  //this.container.isLocalWorld = false;
+	  this.container.scrollTo(currentScroll);
+	  //this.container.isLocalWorld = true;
+	}
+
+	this.updateScreenPosition();
+	this.updateScreenPosition();
+	this.updateScreenPosition();
+	this.updateRenderButtons();
   }
 
   @Override
   public void init() {
-    super.init();
+	super.init();
 
-    if (this.minecraft != null) {
+	System.out.println("SCREEN INIT");
 
-      if (this.minecraft.player != null) {
-        this.hasScrollBar = CuriosApi.getCuriosHelper().getCuriosHandler(this.minecraft.player)
-            .map(handler -> handler.getVisibleSlots() > 8).orElse(false);
+	if (this.minecraft != null) {
 
-        if (this.hasScrollBar) {
-          this.container.scrollTo(currentScroll);
-        }
-      }
-      int neededWidth = 431;
+	  if (this.minecraft.player != null) {
+		this.hasScrollBar = CuriosApi.getCuriosHelper().getCuriosHandler(this.minecraft.player)
+			.map(handler -> handler.getVisibleSlots() > 8).orElse(false);
 
-      if (this.hasScrollBar) {
-        neededWidth += 30;
-      }
+		if (this.hasScrollBar) {
+		  this.container.scrollTo(currentScroll);
+		}
+	  }
+	  int neededWidth = 431;
 
-      if (this.container.hasCosmeticColumn()) {
-        neededWidth += 40;
-      }
-      this.widthTooNarrow = this.width < neededWidth;
-      this.recipeBookGui
-          .init(this.width, this.height, this.minecraft, this.widthTooNarrow, this.container);
-      this.updateScreenPosition();
-      this.children.add(this.recipeBookGui);
-      this.setFocusedDefault(this.recipeBookGui);
+	  if (this.hasScrollBar) {
+		neededWidth += 30;
+	  }
 
-      /*
+	  if (this.container.hasCosmeticColumn()) {
+		neededWidth += 40;
+	  }
+	  this.widthTooNarrow = this.width < neededWidth;
+	  this.recipeBookGui
+	  .init(this.width, this.height, this.minecraft, this.widthTooNarrow, this.container);
+	  this.updateScreenPosition();
+	  this.children.add(this.recipeBookGui);
+	  this.setFocusedDefault(this.recipeBookGui);
+
+	  /*
         This may not be a perfect workaround as it doesn't return the book upon switching back
         to survival mode. Creative inventory doesn't have this problem because it doesn't have
         recipe book at all, but here we only have one Screen and must toggle it circumstantially,
@@ -137,180 +159,237 @@ public class CuriosScreen extends ContainerScreen<CuriosContainer> implements IR
 
         Anyhow, this is better than letting the book persist in creative without a way to toggle it.
         @author Extegral
-       */
-      if (this.getMinecraft().player != null && this.getMinecraft().player.isCreative()
-          && this.recipeBookGui.isVisible()) {
-        this.recipeBookGui.toggleVisibility();
-        this.updateScreenPosition();
-      }
+	   */
+	  if (this.getMinecraft().player != null && this.getMinecraft().player.isCreative()
+		  && this.recipeBookGui.isVisible()) {
+		this.recipeBookGui.toggleVisibility();
+		this.updateScreenPosition();
+	  }
 
-      Tuple<Integer, Integer> offsets = getButtonOffset(false);
-      this.buttonCurios = new CuriosButton(this, this.getGuiLeft() + offsets.getA(),
-          this.height / 2 + offsets.getB(), 14, 14, 50, 0, 14, CURIO_INVENTORY);
-      this.addButton(this.buttonCurios);
+	  Tuple<Integer, Integer> offsets = getButtonOffset(false);
+	  this.buttonCurios = new CuriosButton(this, this.getGuiLeft() + offsets.getA(),
+		  this.height / 2 + offsets.getB(), 14, 14, 50, 0, 14, CURIO_INVENTORY);
+	  this.addButton(this.buttonCurios);
 
-      if (!this.playerInventory.player.isCreative()) {
-        this.addButton(new ImageButton(this.guiLeft + 104, this.height / 2 - 22, 20, 18, 0, 0, 19,
-            RECIPE_BUTTON_TEXTURE, (button) -> {
-          this.recipeBookGui.initSearchBar(this.widthTooNarrow);
-          this.recipeBookGui.toggleVisibility();
-          this.updateScreenPosition();
-          ((ImageButton) button).setPosition(this.guiLeft + 104, this.height / 2 - 22);
-          this.buttonCurios
-              .setPosition(this.guiLeft + offsets.getA(), this.height / 2 + offsets.getB());
-        }));
-      }
+	  if (!this.playerInventory.player.isCreative()) {
+		this.addButton(new ImageButton(this.guiLeft + 104, this.height / 2 - 22, 20, 18, 0, 0, 19,
+			RECIPE_BUTTON_TEXTURE, (button) -> {
+			  this.recipeBookGui.initSearchBar(this.widthTooNarrow);
+			  this.recipeBookGui.toggleVisibility();
+			  this.updateScreenPosition();
+			  ((ImageButton) button).setPosition(this.guiLeft + 104, this.height / 2 - 22);
+			  this.buttonCurios
+			  .setPosition(this.guiLeft + offsets.getA(), this.height / 2 + offsets.getB());
+			}));
+	  }
 
-      this.updateRenderButtons();
-    }
+	  this.updateRenderButtons();
+	}
   }
 
   public void updateRenderButtons() {
-    this.buttons.removeIf(widget -> widget instanceof RenderButton);
-    this.buttons.removeIf(widget -> widget instanceof RenderButton);
-
-    for (Slot inventorySlot : this.container.inventorySlots) {
-
-      if (inventorySlot instanceof CurioSlot && !(inventorySlot instanceof CosmeticCurioSlot)) {
-        this.addButton(
-            new RenderButton((CurioSlot) inventorySlot, this.guiLeft + inventorySlot.xPos + 11,
-                this.guiTop + inventorySlot.yPos - 3, 8, 8, 75, 0, 8, CURIO_INVENTORY,
-                (button) -> NetworkHandler.INSTANCE.send(PacketDistributor.SERVER.noArg(),
-                    new CPacketToggleRender(((CurioSlot) inventorySlot).getIdentifier(),
-                        inventorySlot.getSlotIndex()))));
-      }
-    }
+	this.updateRenderButtons(this.container);
   }
 
-  private void updateScreenPosition() {
-    int i;
+  public void removeRenderButtons() {
+	for (Widget widget : new ArrayList<>(this.buttons)) {
+	  if (widget instanceof RenderButton) {
+		RenderButton button = (RenderButton) widget;
+		button.active = false;
+		button.visible = false;
+		button.setPosition(Short.MIN_VALUE, Short.MIN_VALUE);
+		this.buttons.remove(button);
+	  }
+	}
 
-    if (this.recipeBookGui.isVisible() && !this.widthTooNarrow) {
-      int offset = 148;
+	this.buttonState();
+  }
 
-      if (this.hasScrollBar) {
-        offset -= 30;
-      }
+  public void buttonState() {
+	//System.out.println("Buttons state: " + this.buttons);
+	System.out.println("Buttons size: " + this.buttons.size());
+  }
 
-      if (this.container.hasCosmeticColumn()) {
-        offset -= 40;
-      }
-      i = 177 + (this.width - this.xSize - offset) / 2;
-    } else {
-      i = (this.width - this.xSize) / 2;
-    }
-    this.guiLeft = i;
-    this.updateRenderButtons();
+  public void updateRenderButtons(CuriosContainer container) {
+	System.out.println("UPDATING BUTTONS");
+	this.buttons.removeIf(widget -> widget instanceof RenderButton);
+
+	int slotIndex = 0;
+	for (Slot inventorySlot : container.inventorySlots) {
+	  if (inventorySlot instanceof CurioSlot && !(inventorySlot instanceof CosmeticCurioSlot)) {
+		final CurioSlot curioSlot = (CurioSlot) inventorySlot;
+
+		curioSlot.debug("[UPDATING]");
+
+		this.addButton(
+			new RenderButton(this, slotIndex, this.guiLeft + curioSlot.xPos + 11,
+				this.guiTop + curioSlot.yPos - 3, 8, 8, 75, 0, 8, CURIO_INVENTORY,
+				(button) ->  {
+
+				  if (button instanceof RenderButton) {
+					RenderButton rendBut = (RenderButton) button;
+					rendBut.getSlot().debug("[LAMBDA]");
+
+					this.buttonState();
+
+					if (!rendBut.test) {
+					  NetworkHandler.INSTANCE.send(PacketDistributor.SERVER.noArg(),
+						  new CPacketToggleRender(rendBut.getSlot().getIdentifier(),
+							  rendBut.getSlot().getSlotIndex()));
+					}
+				  }
+
+				}));
+
+		slotIndex++;
+		//System.out.println("Added button for slot: " + curioSlot.getIdentifier() + ", slotPos");
+	  }
+	}
+  }
+
+  public void updateScreenPosition() {
+	System.out.println("SCREEN POSITION UPDATE");
+
+	int i;
+
+	if (this.recipeBookGui.isVisible() && !this.widthTooNarrow) {
+	  int offset = 148;
+
+	  if (this.hasScrollBar) {
+		offset -= 30;
+	  }
+
+	  if (this.container.hasCosmeticColumn()) {
+		offset -= 40;
+	  }
+	  i = 177 + (this.width - this.xSize - offset) / 2;
+	} else {
+	  i = (this.width - this.xSize) / 2;
+	}
+	this.guiLeft = i;
+	this.updateRenderButtons();
+  }
+
+  public void scheduleButtonUpdate() {
+	this.scheduleButtonUpdate = 1;
   }
 
   @Override
   public void tick() {
-    super.tick();
-    this.recipeBookGui.tick();
+	super.tick();
+	this.recipeBookGui.tick();
+	//this.updateRenderButtons();
+	/*
+	if (this.scheduleButtonUpdate >= 0) {
+	  this.scheduleButtonUpdate--;
+
+	  if (this.scheduleButtonUpdate == 0) {
+		this.updateRenderButtons();
+	  }
+	}*/
   }
 
   private boolean inScrollBar(double mouseX, double mouseY) {
-    int i = this.guiLeft;
-    int j = this.guiTop;
-    int k = i - 34;
-    int l = j + 12;
-    int i1 = k + 14;
-    int j1 = l + 139;
+	int i = this.guiLeft;
+	int j = this.guiTop;
+	int k = i - 34;
+	int l = j + 12;
+	int i1 = k + 14;
+	int j1 = l + 139;
 
-    if (this.container.hasCosmeticColumn()) {
-      i1 -= 19;
-      k -= 19;
-    }
-    return mouseX >= k && mouseY >= l && mouseX < i1 && mouseY < j1;
+	if (this.container.hasCosmeticColumn()) {
+	  i1 -= 19;
+	  k -= 19;
+	}
+	return mouseX >= k && mouseY >= l && mouseX < i1 && mouseY < j1;
   }
 
   @Override
   public void render(@Nonnull MatrixStack matrixStack, int mouseX, int mouseY, float partialTicks) {
-    this.renderBackground(matrixStack);
+	this.renderBackground(matrixStack);
 
-    if (this.recipeBookGui.isVisible() && this.widthTooNarrow) {
-      this.drawGuiContainerBackgroundLayer(matrixStack, partialTicks, mouseX, mouseY);
-      this.recipeBookGui.render(matrixStack, mouseX, mouseY, partialTicks);
-    } else {
-      this.recipeBookGui.render(matrixStack, mouseX, mouseY, partialTicks);
-      super.render(matrixStack, mouseX, mouseY, partialTicks);
-      this.recipeBookGui.func_230477_a_(matrixStack, this.guiLeft, this.guiTop, true, partialTicks);
+	if (this.recipeBookGui.isVisible() && this.widthTooNarrow) {
+	  this.drawGuiContainerBackgroundLayer(matrixStack, partialTicks, mouseX, mouseY);
+	  this.recipeBookGui.render(matrixStack, mouseX, mouseY, partialTicks);
+	} else {
+	  this.recipeBookGui.render(matrixStack, mouseX, mouseY, partialTicks);
+	  super.render(matrixStack, mouseX, mouseY, partialTicks);
+	  this.recipeBookGui.func_230477_a_(matrixStack, this.guiLeft, this.guiTop, true, partialTicks);
 
-      boolean isButtonHovered = false;
+	  boolean isButtonHovered = false;
 
-      for (Widget button : this.buttons) {
+	  for (Widget button : this.buttons) {
 
-        if (button instanceof RenderButton) {
-          ((RenderButton) button).renderButtonOverlay(matrixStack, mouseX, mouseY, partialTicks);
+		if (button instanceof RenderButton) {
+		  ((RenderButton) button).renderButtonOverlay(matrixStack, mouseX, mouseY, partialTicks);
 
-          if (button.isHovered()) {
-            isButtonHovered = true;
-          }
-        }
-      }
-      this.isRenderButtonHovered = isButtonHovered;
-      ClientPlayerEntity clientPlayer = Minecraft.getInstance().player;
+		  if (button.isHovered()) {
+			isButtonHovered = true;
+		  }
+		}
+	  }
+	  this.isRenderButtonHovered = isButtonHovered;
+	  ClientPlayerEntity clientPlayer = Minecraft.getInstance().player;
 
-      if (!this.isRenderButtonHovered && clientPlayer != null && clientPlayer.inventory
-          .getItemStack().isEmpty() && this.getSlotUnderMouse() != null) {
-        Slot slot = this.getSlotUnderMouse();
+	  if (!this.isRenderButtonHovered && clientPlayer != null && clientPlayer.inventory
+		  .getItemStack().isEmpty() && this.getSlotUnderMouse() != null) {
+		Slot slot = this.getSlotUnderMouse();
 
-        if (slot instanceof CurioSlot && !slot.getHasStack()) {
-          CurioSlot slotCurio = (CurioSlot) slot;
-          this.renderTooltip(matrixStack, new StringTextComponent(slotCurio.getSlotName()), mouseX,
-              mouseY);
-        }
-      }
-    }
-    this.func_230459_a_(matrixStack, mouseX, mouseY);
+		if (slot instanceof CurioSlot && !slot.getHasStack()) {
+		  CurioSlot slotCurio = (CurioSlot) slot;
+		  this.renderTooltip(matrixStack, new StringTextComponent(slotCurio.getSlotName()), mouseX,
+			  mouseY);
+		}
+	  }
+	}
+	this.func_230459_a_(matrixStack, mouseX, mouseY);
   }
 
   @Override
   protected void func_230459_a_(@Nonnull MatrixStack matrixStack, int mouseX, int mouseY) {
-    Minecraft mc = this.minecraft;
+	Minecraft mc = this.minecraft;
 
-    if (mc != null) {
-      ClientPlayerEntity clientPlayer = mc.player;
+	if (mc != null) {
+	  ClientPlayerEntity clientPlayer = mc.player;
 
-      if (clientPlayer != null && clientPlayer.inventory.getItemStack().isEmpty()) {
+	  if (clientPlayer != null && clientPlayer.inventory.getItemStack().isEmpty()) {
 
-        if (this.isRenderButtonHovered) {
-          this.renderTooltip(matrixStack, new TranslationTextComponent("gui.curios.toggle"), mouseX,
-              mouseY);
-        } else if (this.hoveredSlot != null && this.hoveredSlot.getHasStack()) {
-          this.renderTooltip(matrixStack, this.hoveredSlot.getStack(), mouseX, mouseY);
-        }
-      }
-    }
+		if (this.isRenderButtonHovered) {
+		  this.renderTooltip(matrixStack, new TranslationTextComponent("gui.curios.toggle"), mouseX,
+			  mouseY);
+		} else if (this.hoveredSlot != null && this.hoveredSlot.getHasStack()) {
+		  this.renderTooltip(matrixStack, this.hoveredSlot.getStack(), mouseX, mouseY);
+		}
+	  }
+	}
   }
 
   @Override
   public boolean keyPressed(int p_keyPressed_1_, int p_keyPressed_2_, int p_keyPressed_3_) {
 
-    if (this.recipeBookGui.isVisible() && this.widthTooNarrow) {
-      this.recipeBookGui.toggleVisibility();
-      this.updateScreenPosition();
-      return true;
-    } else if (KeyRegistry.openCurios
-        .isActiveAndMatches(InputMappings.getInputByCode(p_keyPressed_1_, p_keyPressed_2_))) {
-      ClientPlayerEntity playerEntity = this.getMinecraft().player;
+	if (this.recipeBookGui.isVisible() && this.widthTooNarrow) {
+	  this.recipeBookGui.toggleVisibility();
+	  this.updateScreenPosition();
+	  return true;
+	} else if (KeyRegistry.openCurios
+		.isActiveAndMatches(InputMappings.getInputByCode(p_keyPressed_1_, p_keyPressed_2_))) {
+	  ClientPlayerEntity playerEntity = this.getMinecraft().player;
 
-      if (playerEntity != null) {
-        playerEntity.closeScreen();
-      }
-      return true;
-    } else {
-      return super.keyPressed(p_keyPressed_1_, p_keyPressed_2_, p_keyPressed_3_);
-    }
+	  if (playerEntity != null) {
+		playerEntity.closeScreen();
+	  }
+	  return true;
+	} else
+	  return super.keyPressed(p_keyPressed_1_, p_keyPressed_2_, p_keyPressed_3_);
   }
 
   @Override
   protected void drawGuiContainerForegroundLayer(@Nonnull MatrixStack matrixStack, int mouseX,
-      int mouseY) {
+	  int mouseY) {
 
-    if (this.minecraft != null && this.minecraft.player != null) {
-      this.font.func_243248_b(matrixStack, this.title, 97, 6, 4210752);
-    }
+	if (this.minecraft != null && this.minecraft.player != null) {
+	  this.font.func_243248_b(matrixStack, this.title, 97, 6, 4210752);
+	}
   }
 
   /**
@@ -319,55 +398,55 @@ public class CuriosScreen extends ContainerScreen<CuriosContainer> implements IR
   @SuppressWarnings("deprecation")
   @Override
   protected void drawGuiContainerBackgroundLayer(@Nonnull MatrixStack matrixStack,
-      float partialTicks, int mouseX, int mouseY) {
+	  float partialTicks, int mouseX, int mouseY) {
 
-    if (this.minecraft != null && this.minecraft.player != null) {
-      RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-      this.minecraft.getTextureManager().bindTexture(INVENTORY_BACKGROUND);
-      int i = this.guiLeft;
-      int j = this.guiTop;
-      this.blit(matrixStack, i, j, 0, 0, this.xSize, this.ySize);
-      InventoryScreen.drawEntityOnScreen(i + 51, j + 75, 30, (float) (i + 51) - mouseX,
-          (float) (j + 75 - 50) - mouseY, this.minecraft.player);
-      CuriosApi.getCuriosHelper().getCuriosHandler(this.minecraft.player).ifPresent(handler -> {
-        int slotCount = handler.getVisibleSlots();
+	if (this.minecraft != null && this.minecraft.player != null) {
+	  RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
+	  this.minecraft.getTextureManager().bindTexture(INVENTORY_BACKGROUND);
+	  int i = this.guiLeft;
+	  int j = this.guiTop;
+	  this.blit(matrixStack, i, j, 0, 0, this.xSize, this.ySize);
+	  InventoryScreen.drawEntityOnScreen(i + 51, j + 75, 30, (float) (i + 51) - mouseX,
+		  (float) (j + 75 - 50) - mouseY, this.minecraft.player);
+	  CuriosApi.getCuriosHelper().getCuriosHandler(this.minecraft.player).ifPresent(handler -> {
+		int slotCount = handler.getVisibleSlots();
 
-        if (slotCount > 0) {
-          int upperHeight = 7 + slotCount * 18;
-          RenderSystem.color4f(1.0f, 1.0f, 1.0f, 1.0f);
-          this.getMinecraft().getTextureManager().bindTexture(CURIO_INVENTORY);
-          int xTexOffset = 0;
-          int width = 27;
-          int xOffset = -26;
+		if (slotCount > 0) {
+		  int upperHeight = 7 + slotCount * 18;
+		  RenderSystem.color4f(1.0f, 1.0f, 1.0f, 1.0f);
+		  this.getMinecraft().getTextureManager().bindTexture(CURIO_INVENTORY);
+		  int xTexOffset = 0;
+		  int width = 27;
+		  int xOffset = -26;
 
-          if (this.container.hasCosmeticColumn()) {
-            xTexOffset = 92;
-            width = 46;
-            xOffset -= 19;
-          }
-          this.blit(matrixStack, i + xOffset, j + 4, xTexOffset, 0, width, upperHeight);
+		  if (this.container.hasCosmeticColumn()) {
+			xTexOffset = 92;
+			width = 46;
+			xOffset -= 19;
+		  }
+		  this.blit(matrixStack, i + xOffset, j + 4, xTexOffset, 0, width, upperHeight);
 
-          if (slotCount <= 8) {
-            this.blit(matrixStack, i + xOffset, j + 4 + upperHeight, xTexOffset, 151, width, 7);
-          } else {
-            this.blit(matrixStack, i + xOffset - 16, j + 4, 27, 0, 23, 158);
-            this.getMinecraft().getTextureManager().bindTexture(CREATIVE_INVENTORY_TABS);
-            this.blit(matrixStack, i + xOffset - 8, j + 12 + (int) (127f * currentScroll), 232, 0,
-                12, 15);
-          }
+		  if (slotCount <= 8) {
+			this.blit(matrixStack, i + xOffset, j + 4 + upperHeight, xTexOffset, 151, width, 7);
+		  } else {
+			this.blit(matrixStack, i + xOffset - 16, j + 4, 27, 0, 23, 158);
+			this.getMinecraft().getTextureManager().bindTexture(CREATIVE_INVENTORY_TABS);
+			this.blit(matrixStack, i + xOffset - 8, j + 12 + (int) (127f * currentScroll), 232, 0,
+				12, 15);
+		  }
 
-          for (Slot slot : this.container.inventorySlots) {
+		  for (Slot slot : this.container.inventorySlots) {
 
-            if (slot instanceof CosmeticCurioSlot) {
-              int x = this.guiLeft + slot.xPos - 1;
-              int y = this.guiTop + slot.yPos - 1;
-              this.getMinecraft().getTextureManager().bindTexture(CURIO_INVENTORY);
-              this.blit(matrixStack, x, y, 138, 0, 18, 18);
-            }
-          }
-        }
-      });
-    }
+			if (slot instanceof CosmeticCurioSlot) {
+			  int x = this.guiLeft + slot.xPos - 1;
+			  int y = this.guiTop + slot.yPos - 1;
+			  this.getMinecraft().getTextureManager().bindTexture(CURIO_INVENTORY);
+			  this.blit(matrixStack, x, y, 138, 0, 18, 18);
+			}
+		  }
+		}
+	  });
+	}
   }
 
   /**
@@ -376,13 +455,12 @@ public class CuriosScreen extends ContainerScreen<CuriosContainer> implements IR
    */
   @Override
   protected boolean isPointInRegion(int rectX, int rectY, int rectWidth, int rectHeight,
-      double pointX, double pointY) {
+	  double pointX, double pointY) {
 
-    if (this.isRenderButtonHovered) {
-      return false;
-    }
-    return (!this.widthTooNarrow || !this.recipeBookGui.isVisible()) && super
-        .isPointInRegion(rectX, rectY, rectWidth, rectHeight, pointX, pointY);
+	if (this.isRenderButtonHovered)
+	  return false;
+	return (!this.widthTooNarrow || !this.recipeBookGui.isVisible()) && super
+		.isPointInRegion(rectX, rectY, rectWidth, rectHeight, pointX, pointY);
   }
 
   /**
@@ -391,97 +469,96 @@ public class CuriosScreen extends ContainerScreen<CuriosContainer> implements IR
   @Override
   public boolean mouseClicked(double mouseX, double mouseY, int mouseButton) {
 
-    if (this.recipeBookGui.mouseClicked(mouseX, mouseY, mouseButton)) {
-      return true;
-    } else if (this.inScrollBar(mouseX, mouseY)) {
-      this.isScrolling = this.needsScrollBars();
-      return true;
-    }
-    return this.widthTooNarrow && this.recipeBookGui.isVisible() || super
-        .mouseClicked(mouseX, mouseY, mouseButton);
+	if (this.recipeBookGui.mouseClicked(mouseX, mouseY, mouseButton))
+	  return true;
+	else if (this.inScrollBar(mouseX, mouseY)) {
+	  this.isScrolling = this.needsScrollBars();
+	  return true;
+	}
+	return this.widthTooNarrow && this.recipeBookGui.isVisible() || super
+		.mouseClicked(mouseX, mouseY, mouseButton);
   }
 
   @Override
   public boolean mouseReleased(double mouseReleased1, double mouseReleased3, int mouseReleased5) {
 
-    if (mouseReleased5 == 0) {
-      this.isScrolling = false;
-    }
+	if (mouseReleased5 == 0) {
+	  this.isScrolling = false;
+	}
 
-    if (this.buttonClicked) {
-      this.buttonClicked = false;
-      return true;
-    } else {
-      return super.mouseReleased(mouseReleased1, mouseReleased3, mouseReleased5);
-    }
+	if (this.buttonClicked) {
+	  this.buttonClicked = false;
+	  return true;
+	} else
+	  return super.mouseReleased(mouseReleased1, mouseReleased3, mouseReleased5);
   }
 
   @Override
   public boolean mouseDragged(double pMouseDragged1, double pMouseDragged3, int pMouseDragged5,
-      double pMouseDragged6, double pMouseDragged8) {
+	  double pMouseDragged6, double pMouseDragged8) {
 
-    if (this.isScrolling) {
-      int i = this.guiTop + 8;
-      int j = i + 148;
-      currentScroll = ((float) pMouseDragged3 - i - 7.5F) / (j - i - 15.0F);
-      currentScroll = MathHelper.clamp(currentScroll, 0.0F, 1.0F);
-      this.container.scrollTo(currentScroll);
-      return true;
-    } else {
-      return super.mouseDragged(pMouseDragged1, pMouseDragged3, pMouseDragged5, pMouseDragged6,
-          pMouseDragged8);
-    }
+	if (this.isScrolling) {
+	  int i = this.guiTop + 8;
+	  int j = i + 148;
+	  currentScroll = ((float) pMouseDragged3 - i - 7.5F) / (j - i - 15.0F);
+	  currentScroll = MathHelper.clamp(currentScroll, 0.0F, 1.0F);
+	  this.container.scrollTo(currentScroll);
+	  return true;
+	} else
+	  return super.mouseDragged(pMouseDragged1, pMouseDragged3, pMouseDragged5, pMouseDragged6,
+		  pMouseDragged8);
   }
 
   @Override
   public boolean mouseScrolled(double pMouseScrolled1, double pMouseScrolled3,
-      double pMouseScrolled5) {
+	  double pMouseScrolled5) {
 
-    if (!this.needsScrollBars()) {
-      return false;
-    } else {
-      int i = (this.container).curiosHandler.map(ICuriosItemHandler::getVisibleSlots).orElse(1);
-      currentScroll = (float) (currentScroll - pMouseScrolled5 / i);
-      currentScroll = MathHelper.clamp(currentScroll, 0.0F, 1.0F);
-      this.container.scrollTo(currentScroll);
-      return true;
-    }
+	if (!this.needsScrollBars())
+	  return false;
+	else {
+	  int i = (this.container).curiosHandler.map(ICuriosItemHandler::getVisibleSlots).orElse(1);
+	  currentScroll = (float) (currentScroll - pMouseScrolled5 / i);
+	  currentScroll = MathHelper.clamp(currentScroll, 0.0F, 1.0F);
+	  this.container.scrollTo(currentScroll);
+	  return true;
+	}
   }
 
   private boolean needsScrollBars() {
-    return this.container.canScroll();
+	return this.container.canScroll();
   }
 
+  @Override
   protected boolean hasClickedOutside(double mouseX, double mouseY, int guiLeftIn, int guiTopIn,
-      int mouseButton) {
-    boolean flag = mouseX < guiLeftIn || mouseY < guiTopIn || mouseX >= guiLeftIn + this.xSize
-        || mouseY >= guiTopIn + this.ySize;
-    return this.recipeBookGui
-        .func_195604_a(mouseX, mouseY, this.guiLeft, this.guiTop, this.xSize, this.ySize,
-            mouseButton) && flag;
+	  int mouseButton) {
+	boolean flag = mouseX < guiLeftIn || mouseY < guiTopIn || mouseX >= guiLeftIn + this.xSize
+		|| mouseY >= guiTopIn + this.ySize;
+		return this.recipeBookGui
+			.func_195604_a(mouseX, mouseY, this.guiLeft, this.guiTop, this.xSize, this.ySize,
+				mouseButton) && flag;
   }
 
   @Override
   protected void handleMouseClick(Slot slotIn, int slotId, int mouseButton,
-      @Nonnull ClickType type) {
-    super.handleMouseClick(slotIn, slotId, mouseButton, type);
-    this.recipeBookGui.slotClicked(slotIn);
+	  @Nonnull ClickType type) {
+	super.handleMouseClick(slotIn, slotId, mouseButton, type);
+	this.recipeBookGui.slotClicked(slotIn);
   }
 
   @Override
   public void recipesUpdated() {
-    this.recipeBookGui.recipesUpdated();
+	this.recipeBookGui.recipesUpdated();
   }
 
   @Override
   public void onClose() {
-    this.recipeBookGui.removed();
-    super.onClose();
+	this.recipeBookGui.removed();
+	super.onClose();
   }
 
   @Nonnull
   @Override
   public RecipeBookGui getRecipeGui() {
-    return this.recipeBookGui;
+	return this.recipeBookGui;
   }
 }

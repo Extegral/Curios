@@ -35,37 +35,42 @@ public class SPacketScroll {
   private int index;
 
   public SPacketScroll(int windowId, int index) {
-    this.windowId = windowId;
-    this.index = index;
+	this.windowId = windowId;
+	this.index = index;
   }
 
   public static void encode(SPacketScroll msg, PacketBuffer buf) {
-    buf.writeInt(msg.windowId);
-    buf.writeInt(msg.index);
+	buf.writeInt(msg.windowId);
+	buf.writeInt(msg.index);
   }
 
   public static SPacketScroll decode(PacketBuffer buf) {
-    return new SPacketScroll(buf.readInt(), buf.readInt());
+	return new SPacketScroll(buf.readInt(), buf.readInt());
   }
 
   public static void handle(SPacketScroll msg, Supplier<NetworkEvent.Context> ctx) {
-    ctx.get().enqueueWork(() -> {
-      Minecraft mc = Minecraft.getInstance();
-      ClientPlayerEntity clientPlayer = mc.player;
-      Screen screen = mc.currentScreen;
+	ctx.get().enqueueWork(() -> {
+	  Minecraft mc = Minecraft.getInstance();
+	  ClientPlayerEntity clientPlayer = mc.player;
+	  Screen screen = mc.currentScreen;
 
-      if (clientPlayer != null) {
-        Container container = clientPlayer.openContainer;
+	  Container container = clientPlayer.openContainer;
 
-        if (container instanceof CuriosContainer && container.windowId == msg.windowId) {
-          ((CuriosContainer) container).scrollToIndex(msg.index);
-        }
-      }
+	  if (container instanceof CuriosContainer && container.windowId == msg.windowId) {
+		((CuriosContainer) container).scrollToIndex(msg.index);
+		System.out.println("CLIENT SCROLL");
 
-      if (screen instanceof CuriosScreen) {
-        ((CuriosScreen) screen).updateRenderButtons();
-      }
-    });
-    ctx.get().setPacketHandled(true);
+		if (screen instanceof CuriosScreen) {
+		  //((CuriosScreen) screen).removeRenderButtons();
+		  //((CuriosScreen) screen).refreshButtons();
+		  //System.out.println("FORCE INIT SCREEN");
+		  //((CuriosScreen) screen).buttonState();
+		}
+	  }
+
+
+
+	});
+	ctx.get().setPacketHandled(true);
   }
 }

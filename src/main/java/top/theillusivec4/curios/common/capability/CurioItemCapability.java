@@ -34,39 +34,45 @@ import top.theillusivec4.curios.api.type.capability.ICurio;
 public class CurioItemCapability {
 
   public static void register() {
-    CapabilityManager.INSTANCE.register(ICurio.class, new Capability.IStorage<ICurio>() {
-      @Override
-      public INBT writeNBT(Capability<ICurio> capability, ICurio instance, Direction side) {
-        return new CompoundNBT();
-      }
+	CapabilityManager.INSTANCE.register(ICurio.class, new Capability.IStorage<ICurio>() {
+	  @Override
+	  public INBT writeNBT(Capability<ICurio> capability, ICurio instance, Direction side) {
+		return null;
+	  }
 
-      @Override
-      public void readNBT(Capability<ICurio> capability, ICurio instance, Direction side,
-          INBT nbt) {
-      }
-    }, CurioItemWrapper::new);
+	  @Override
+	  public void readNBT(Capability<ICurio> capability, ICurio instance, Direction side,
+		  INBT nbt) {
+		// NO-OP
+	  }
+
+
+
+	}, CurioItemWrapper::new);
   }
 
   public static ICapabilityProvider createProvider(final ICurio curio) {
-    return new Provider(curio);
+	return new Provider(curio);
   }
 
   private static class CurioItemWrapper implements ICurio {
-
+	// NO-OP
   }
 
   public static class Provider implements ICapabilityProvider {
 
-    final LazyOptional<ICurio> capability;
+	final LazyOptional<ICurio> capability;
 
-    Provider(ICurio curio) {
-      this.capability = LazyOptional.of(() -> curio);
-    }
+	Provider(ICurio curio) {
+	  this.capability = LazyOptional.of(() -> curio);
+	}
 
-    @Nonnull
-    @Override
-    public <T> LazyOptional<T> getCapability(@Nonnull Capability<T> cap, @Nullable Direction side) {
-      return CuriosCapability.ITEM.orEmpty(cap, capability);
-    }
+	@Nonnull
+	@Override
+	public <T> LazyOptional<T> getCapability(@Nonnull Capability<T> cap, @Nullable Direction side) {
+	  return CuriosCapability.ITEM.orEmpty(cap, this.capability);
+	}
+
+
   }
 }

@@ -20,6 +20,8 @@
 package top.theillusivec4.curios.common.inventory;
 
 import java.util.Set;
+import java.util.UUID;
+
 import javax.annotation.Nonnull;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.enchantment.EnchantmentHelper;
@@ -28,6 +30,7 @@ import net.minecraft.inventory.container.PlayerContainer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.MathHelper;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.items.SlotItemHandler;
@@ -39,50 +42,57 @@ public class CurioSlot extends SlotItemHandler {
 
   private final String identifier;
   private final PlayerEntity player;
-
+  private final UUID uuid;
   private NonNullList<Boolean> renderStatuses;
 
   public CurioSlot(PlayerEntity player, IDynamicStackHandler handler, int index, String identifier,
-      int xPosition, int yPosition, NonNullList<Boolean> renders) {
-    super(handler, index, xPosition, yPosition);
-    this.identifier = identifier;
-    this.renderStatuses = renders;
-    this.player = player;
-    this.setBackground(PlayerContainer.LOCATION_BLOCKS_TEXTURE,
-        player.getEntityWorld().isRemote() ? CuriosApi.getIconHelper().getIcon(identifier)
-            : new ResourceLocation(Curios.MODID, "item/empty_curio_slot"));
+	  int xPosition, int yPosition, NonNullList<Boolean> renders) {
+	super(handler, index, xPosition, yPosition);
+	this.identifier = identifier;
+	this.renderStatuses = renders;
+	this.player = player;
+	this.uuid = MathHelper.getRandomUUID();
+	this.setBackground(PlayerContainer.LOCATION_BLOCKS_TEXTURE,
+		player.getEntityWorld().isRemote() ? CuriosApi.getIconHelper().getIcon(identifier)
+			: new ResourceLocation(Curios.MODID, "item/empty_curio_slot"));
+
+	this.debug("[CREATION]");
+  }
+
+  public void debug(String marker) {
+	//Curios.LOGGER.info(marker + " UUID: " + this.uuid + ", Slot: " + this.identifier + ", index: " + this.getSlotIndex() + ", SlotPosX: " + this.xPos + ", SlotPosY: " + this.yPos);
   }
 
   public String getIdentifier() {
-    return this.identifier;
+	return this.identifier;
   }
 
   public boolean getRenderStatus() {
-    return this.renderStatuses.get(this.getSlotIndex());
+	return this.renderStatuses.get(this.getSlotIndex());
   }
 
   @OnlyIn(Dist.CLIENT)
   public String getSlotName() {
-    return I18n.format("curios.identifier." + identifier);
+	return I18n.format("curios.identifier." + this.identifier);
   }
 
   @Override
   public boolean isItemValid(@Nonnull ItemStack stack) {
-    return hasValidTag(CuriosApi.getCuriosHelper().getCurioTags(stack.getItem())) && CuriosApi
-        .getCuriosHelper().getCurio(stack).map(curio -> curio.canEquip(identifier, player))
-        .orElse(true) && super.isItemValid(stack);
+	return this.hasValidTag(CuriosApi.getCuriosHelper().getCurioTags(stack.getItem())) && CuriosApi
+		.getCuriosHelper().getCurio(stack).map(curio -> curio.canEquip(this.identifier, this.player))
+		.orElse(true) && super.isItemValid(stack);
   }
 
   protected boolean hasValidTag(Set<String> tags) {
-    return tags.contains(identifier) || tags.contains("curio");
+	return tags.contains(this.identifier) || tags.contains("curio");
   }
 
   @Override
   public boolean canTakeStack(PlayerEntity playerIn) {
-    ItemStack stack = this.getStack();
-    return (stack.isEmpty() || playerIn.isCreative() || !EnchantmentHelper.hasBindingCurse(stack))
-        && CuriosApi.getCuriosHelper().getCurio(stack)
-        .map(curio -> curio.canUnequip(identifier, playerIn)).orElse(true) && super
-        .canTakeStack(playerIn);
+	ItemStack stack = this.getStack();
+	return (stack.isEmpty() || playerIn.isCreative() || !EnchantmentHelper.hasBindingCurse(stack))
+		&& CuriosApi.getCuriosHelper().getCurio(stack)
+		.map(curio -> curio.canUnequip(this.identifier, playerIn)).orElse(true) && super
+		.canTakeStack(playerIn);
   }
 }

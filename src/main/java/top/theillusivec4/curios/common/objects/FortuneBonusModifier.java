@@ -26,56 +26,53 @@ import top.theillusivec4.curios.api.type.capability.ICuriosItemHandler;
 public class FortuneBonusModifier extends LootModifier {
 
   protected FortuneBonusModifier(ILootCondition[] conditions) {
-    super(conditions);
+	super(conditions);
   }
 
   @Nonnull
   @Override
   protected List<ItemStack> doApply(List<ItemStack> generatedLoot, LootContext context) {
-    ItemStack tool = context.get(LootParameters.TOOL);
+	ItemStack tool = context.get(LootParameters.TOOL);
 
-    if (tool == null || tool.getOrCreateTag().getBoolean("HasCuriosFortuneBonus")) {
-      return generatedLoot;
-    }
-    Entity entity = context.get(LootParameters.THIS_ENTITY);
-    BlockState blockState = context.get(LootParameters.BLOCK_STATE);
+	if (tool == null || tool.getOrCreateTag().getBoolean("HasCuriosFortuneBonus"))
+	  return generatedLoot;
+	Entity entity = context.get(LootParameters.THIS_ENTITY);
+	BlockState blockState = context.get(LootParameters.BLOCK_STATE);
 
-    if (blockState == null || !(entity instanceof LivingEntity)) {
-      return generatedLoot;
-    }
-    LivingEntity player = (LivingEntity) entity;
-    int totalFortuneBonus = CuriosApi.getCuriosHelper().getCuriosHandler(player)
-        .map(ICuriosItemHandler::getFortuneBonus).orElse(0);
+	if (blockState == null || !(entity instanceof LivingEntity))
+	  return generatedLoot;
+	LivingEntity player = (LivingEntity) entity;
+	int totalFortuneBonus = CuriosApi.getCuriosHelper().getCuriosHandler(player)
+		.map(ICuriosItemHandler::getFortuneBonus).orElse(0);
 
-    if (totalFortuneBonus <= 0) {
-      return generatedLoot;
-    }
-    ItemStack fakeTool = tool.isEmpty() ? new ItemStack(Items.BARRIER) : tool.copy();
-    fakeTool.getOrCreateTag().putBoolean("HasCuriosFortuneBonus", true);
+	if (totalFortuneBonus <= 0)
+	  return generatedLoot;
+	ItemStack fakeTool = tool.isEmpty() ? new ItemStack(Items.BARRIER) : tool.copy();
+	fakeTool.getOrCreateTag().putBoolean("HasCuriosFortuneBonus", true);
 
-    Map<Enchantment, Integer> enchantments = EnchantmentHelper.getEnchantments(fakeTool);
-    enchantments.put(Enchantments.FORTUNE,
-        EnchantmentHelper.getEnchantmentLevel(Enchantments.FORTUNE, fakeTool) + totalFortuneBonus);
-    EnchantmentHelper.setEnchantments(enchantments, fakeTool);
-    LootContext.Builder builder = new LootContext.Builder(context);
-    builder.withParameter(LootParameters.TOOL, fakeTool);
-    LootContext newContext = builder.build(LootParameterSets.BLOCK);
-    LootTable lootTable = context.getWorld().getServer().getLootTableManager()
-        .getLootTableFromLocation(blockState.getBlock().getLootTable());
-    return lootTable.generate(newContext);
+	Map<Enchantment, Integer> enchantments = EnchantmentHelper.getEnchantments(fakeTool);
+	enchantments.put(Enchantments.FORTUNE,
+		EnchantmentHelper.getEnchantmentLevel(Enchantments.FORTUNE, fakeTool) + totalFortuneBonus);
+	EnchantmentHelper.setEnchantments(enchantments, fakeTool);
+	LootContext.Builder builder = new LootContext.Builder(context);
+	builder.withParameter(LootParameters.TOOL, fakeTool);
+	LootContext newContext = builder.build(LootParameterSets.BLOCK);
+	LootTable lootTable = context.getWorld().getServer().getLootTableManager()
+		.getLootTableFromLocation(blockState.getBlock().getLootTable());
+	return lootTable.generate(newContext);
   }
 
   public static class Serializer extends GlobalLootModifierSerializer<FortuneBonusModifier> {
 
-    @Override
-    public FortuneBonusModifier read(ResourceLocation location, JsonObject object,
-        ILootCondition[] conditions) {
-      return new FortuneBonusModifier(conditions);
-    }
+	@Override
+	public FortuneBonusModifier read(ResourceLocation location, JsonObject object,
+		ILootCondition[] conditions) {
+	  return new FortuneBonusModifier(conditions);
+	}
 
-    @Override
-    public JsonObject write(FortuneBonusModifier instance) {
-      return this.makeConditions(instance.conditions);
-    }
+	@Override
+	public JsonObject write(FortuneBonusModifier instance) {
+	  return this.makeConditions(instance.conditions);
+	}
   }
 }
